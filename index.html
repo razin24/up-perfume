@@ -111,6 +111,8 @@
         <button class="nav-btn active" onclick="switchTab('dashboard')"><i class="fas fa-th-large"></i> Dashboard</button>
         <button class="nav-btn" onclick="switchTab('orders')"><i class="fas fa-shopping-cart"></i> Orders</button>
         <button class="nav-btn admin-only" onclick="switchTab('products')"><i class="fas fa-box"></i> Products</button>
+        <button class="nav-btn admin-only" onclick="switchTab('customers')"><i class="fas fa-users"></i> Customers</button>
+        <button class="nav-btn admin-only" onclick="switchTab('activity')"><i class="fas fa-history"></i> Activity Log</button>
         <button class="nav-btn" onclick="fetchData()"><i class="fas fa-sync-alt"></i> Refresh Data</button>
     </div>
 
@@ -128,7 +130,7 @@
     <header class="topbar">
         <div class="search-bar">
             <i class="fas fa-search" style="color: var(--text-muted);"></i>
-            <input type="text" id="searchInput" placeholder="Search orders..." onkeyup="searchOrders()">
+            <input type="text" id="searchInput" placeholder="Search..." onkeyup="searchGlobal()">
         </div>
         <div style="font-size: 13px; color: var(--text-muted); font-weight: 500;"><i class="far fa-calendar"></i> <span id="currentDate"></span></div>
     </header>
@@ -195,6 +197,28 @@
                 </table>
             </div>
         </div>
+
+        <!-- Customers Tab (Admin Only) -->
+        <div id="tab-customers" class="tab-content hidden">
+            <div class="card">
+                <p style="font-size: 16px; font-weight: 600; margin-bottom: 20px;">Customer Directory</p>
+                <table>
+                    <thead><tr><th>Customer ID</th><th>Name</th><th>Phone</th><th>Total Orders</th><th>Total Spent</th><th>Last Order</th></tr></thead>
+                    <tbody id="customersTable"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Activity Tab (Admin Only) -->
+        <div id="tab-activity" class="tab-content hidden">
+            <div class="card">
+                <p style="font-size: 16px; font-weight: 600; margin-bottom: 20px;">Activity Log</p>
+                <table>
+                    <thead><tr><th>Activity ID</th><th>Order/Item ID</th><th>Action</th><th>Admin/User</th><th>Timestamp</th></tr></thead>
+                    <tbody id="activityTable"></tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </main>
 
@@ -258,12 +282,15 @@
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbxKp9I7YSVG7vRewl8UTAWbpr1JqgFh5W_d2hnGMshURvVCUj_SjCySe8Cf48U-myJX/exec"; 
+const API_URL = "https://script.google.com/macros/s/AKfycbxGlhZkXicVr-OiN2KLHdQjnAluODhRV194cd8U0JM90dwIjaJcbrIIEvoHI0KY37Lp/exec"; 
 let token = sessionStorage.getItem("crm_token") || "";
 let userRole = ""; 
 let globalOrders = [];
 let globalProducts = [];
+let globalCustomers = [];
+let globalActivity = [];
 let chartInstance = null;
+let currentTab = "dashboard";
 
 document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
@@ -293,6 +320,7 @@ async function login(auto = false) {
             
             if(userRole === "admin") {
                 document.getElementById("adminStats").classList.remove("hidden");
+                document.querySelectorAll(".admin-only").forEach(el => el.style.display = "block");
             } else {
                 document.getElementById("partnerStats").classList.remove("hidden");
                 document.querySelectorAll(".admin-only").forEach(el => el.style.display = "none");
@@ -311,10 +339,16 @@ async function login(auto = false) {
 function logout() { sessionStorage.removeItem("crm_token"); location.reload(); }
 
 function switchTab(tabId) {
+    currentTab = tabId;
     document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     document.getElementById(`tab-${tabId}`).classList.remove('hidden');
     event.currentTarget.classList.add('active');
+    document.getElementById("searchInput").value = "";
+    
+    if(tabId === 'orders') renderOrdersTable(globalOrders);
+    if(tabId === 'products' && userRole === 'admin') renderProductsTable(globalProducts);
+    if(tabId === 'customers' && userRole === 'admin') renderCustomersTable(globalCustomers);
 }
 
 async function fetchData() {
@@ -333,8 +367,9 @@ function getBadge(status) {
 }
 
 function populateData(data) {
-    globalOrders = data.orders;
+    globalOrders = data.orders || [];
     globalProducts = data.products || [];
+    globalCustomers = data.customers || [];
     const s = data.stats;
     
     if(userRole === "admin") {
@@ -355,21 +390,8 @@ function populateData(data) {
     `).join("");
 
     if(userRole === "admin") {
-        document.getElementById("productsTable").innerHTML = globalProducts.map(p => `
-            <tr>
-                <td style="font-weight:600;">${p.Product_SKU}</td>
-                <td>${p.Product_Name}</td>
-                <td>৳${p.Cost_Price || 0}</td>
-                <td>৳${p.Unit_Price || 0}</td>
-                <td style="color:var(--gold);">৳${p.Partner_Commission || 0}</td>
-                <td>
-                    <div style="display:flex; gap:8px;">
-                        <button class="btn btn-outline" onclick="openProductModal('${p.Product_SKU}')">Edit</button>
-                        <button class="btn btn-danger" onclick="deleteProduct('${p.Product_SKU}')"><i class="fas fa-trash"></i></button>
-                    </div>
-                </td>
-            </tr>
-        `).join("");
+        renderProductsTable(globalProducts);
+        renderCustomersTable(globalCustomers);
     }
 
     processChartData(globalOrders);
@@ -395,10 +417,52 @@ function renderOrdersTable(orders) {
     if(userRole !== 'admin') document.querySelectorAll(".admin-only").forEach(el => el.style.display = "none");
 }
 
-function searchOrders() {
+function renderProductsTable(products) {
+    document.getElementById("productsTable").innerHTML = products.map(p => `
+        <tr>
+            <td style="font-weight:600;">${p.Product_SKU}</td>
+            <td>${p.Product_Name}</td>
+            <td>৳${p.Cost_Price || 0}</td>
+            <td>৳${p.Unit_Price || 0}</td>
+            <td style="color:var(--gold);">৳${p.Partner_Commission || 0}</td>
+            <td>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn-outline" onclick="openProductModal('${p.Product_SKU}')">Edit</button>
+                    <button class="btn btn-danger" onclick="deleteProduct('${p.Product_SKU}')"><i class="fas fa-trash"></i></button>
+                </div>
+            </td>
+        </tr>
+    `).join("");
+}
+
+function renderCustomersTable(customers) {
+    document.getElementById("customersTable").innerHTML = customers.map(c => `
+        <tr>
+            <td style="font-weight:600;">${c.Customer_ID}</td>
+            <td>${c.Customer_Name}</td>
+            <td>${c.Phone}</td>
+            <td>${c.Total_Orders || 0}</td>
+            <td style="color:var(--gold);">৳${c.Total_Spent || 0}</td>
+            <td>${c.Last_Order_Date || ''}</td>
+        </tr>
+    `).join("");
+}
+
+function searchGlobal() {
     const q = document.getElementById("searchInput").value.toLowerCase();
-    const filtered = globalOrders.filter(o => String(o.Order_ID).toLowerCase().includes(q) || String(o.Customer_Name).toLowerCase().includes(q) || String(o.Phone).includes(q));
-    renderOrdersTable(filtered);
+    
+    if (currentTab === "orders" || currentTab === "dashboard") {
+        const filtered = globalOrders.filter(o => String(o.Order_ID).toLowerCase().includes(q) || String(o.Customer_Name).toLowerCase().includes(q) || String(o.Phone).includes(q));
+        if(currentTab === "orders") renderOrdersTable(filtered);
+    } 
+    else if (currentTab === "products" && userRole === "admin") {
+        const filtered = globalProducts.filter(p => String(p.Product_SKU).toLowerCase().includes(q) || String(p.Product_Name).toLowerCase().includes(q));
+        renderProductsTable(filtered);
+    }
+    else if (currentTab === "customers" && userRole === "admin") {
+        const filtered = globalCustomers.filter(c => String(c.Customer_ID).toLowerCase().includes(q) || String(c.Customer_Name).toLowerCase().includes(q) || String(c.Phone).includes(q));
+        renderCustomersTable(filtered);
+    }
 }
 
 function processChartData(orders) {
