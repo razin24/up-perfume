@@ -20,6 +20,7 @@
             --gold: #dfaa5b;
             --green: #10b981;
             --orange: #f59e0b;
+            --red: #ef4444;
         }
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
         body { background: var(--bg-light); color: var(--text-dark); display: flex; height: 100vh; overflow: hidden; }
@@ -30,7 +31,8 @@
         .login-card { background: var(--white); padding: 40px; border-radius: 16px; width: 350px; text-align: center; }
         .brand-font { font-family: 'Playfair Display', serif; color: var(--gold); }
         .login-card input { width: 100%; padding: 12px; margin-top: 20px; border: 1px solid var(--border); border-radius: 8px; outline: none;}
-        .login-card button { width: 100%; background: var(--gold); color: #000; border: none; padding: 12px; border-radius: 8px; margin-top: 15px; cursor: pointer; font-weight: 600; }
+        .login-card button { width: 100%; background: var(--gold); color: #000; border: none; padding: 12px; border-radius: 8px; margin-top: 15px; cursor: pointer; font-weight: 600; transition: 0.3s; }
+        .login-card button:hover { background: #eab308; }
 
         /* Sidebar */
         .sidebar { width: 260px; background: var(--sidebar-bg); display: flex; flex-direction: column; }
@@ -65,18 +67,24 @@
         th { padding: 12px 10px; font-size: 12px; color: var(--text-muted); border-bottom: 1px solid var(--border); font-weight: 500;}
         td { padding: 15px 10px; font-size: 13px; border-bottom: 1px solid var(--border); color: var(--text-dark); font-weight: 500;}
         
-        .btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; font-weight: 600; }
+        .btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; font-weight: 600; transition: 0.2s; }
+        .btn:disabled { opacity: 0.7; cursor: not-allowed; }
         .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-dark); }
-        .badge { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+        .btn-outline:hover { background: #f8fafc; }
+        .btn-danger { background: #fee2e2; color: var(--red); border: 1px solid #f87171; }
+        .btn-danger:hover { background: #fecaca; }
+        
+        .badge { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; display: inline-block; text-align: center; }
         .badge-delivered { background: rgba(16, 185, 129, 0.1); color: var(--green); }
         .badge-pending { background: rgba(245, 158, 11, 0.1); color: var(--orange); }
         
         /* Modal */
         .modal { display: none; position: fixed; inset: 0; background: rgba(11, 21, 40, 0.6); z-index: 999; align-items: center; justify-content: center; backdrop-filter: blur(4px);}
-        .modal-content { background: var(--white); padding: 30px; border-radius: 16px; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
+        .modal-content { background: var(--white); padding: 30px; border-radius: 16px; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; position: relative; }
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; font-weight: 500;}
-        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; outline: none; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; outline: none; transition: 0.2s; }
+        .form-group input:focus, .form-group select:focus { border-color: var(--gold); }
         .flex-row { display: flex; gap: 15px; }
         .flex-row .form-group { flex: 1; }
     </style>
@@ -88,8 +96,8 @@
     <div class="login-card">
         <h1 class="brand-font" style="font-size: 32px; margin-bottom: 20px;">UP<br><span style="font-size: 16px; letter-spacing: 3px; font-family: 'Inter', sans-serif;">PERFUME</span></h1>
         <input type="password" id="authToken" placeholder="Enter Token (admin/partner)">
-        <button onclick="login()">Sign In</button>
-        <p id="loginError" style="color: red; font-size: 12px; margin-top: 15px;"></p>
+        <button id="loginBtn" onclick="login()">Sign In</button>
+        <p id="loginError" style="color: var(--red); font-size: 12px; margin-top: 15px;"></p>
     </div>
 </div>
 
@@ -120,13 +128,13 @@
     <header class="topbar">
         <div class="search-bar">
             <i class="fas fa-search" style="color: var(--text-muted);"></i>
-            <input type="text" placeholder="Search orders...">
+            <input type="text" id="searchInput" placeholder="Search orders..." onkeyup="searchOrders()">
         </div>
         <div style="font-size: 13px; color: var(--text-muted); font-weight: 500;"><i class="far fa-calendar"></i> <span id="currentDate"></span></div>
     </header>
 
     <div class="content-area">
-        <div class="welcome-text">Welcome back, <span id="roleText">Admin</span> 👋</div>
+        <div class="welcome-text">Welcome back, <span id="roleText">Admin</span></div>
         <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 25px;">Here's your overview</p>
 
         <!-- Dashboard Tab -->
@@ -134,17 +142,17 @@
             
             <!-- Admin Stats -->
             <div id="adminStats" class="stat-grid hidden">
-                <div class="stat-card"><p>Total Revenue</p><h3 id="a-sales">$0.00</h3></div>
+                <div class="stat-card"><p>Total Revenue</p><h3 id="a-sales">৳0</h3></div>
                 <div class="stat-card"><p>Total Orders</p><h3 id="a-orders">0</h3></div>
                 <div class="stat-card"><p>Pending Orders</p><h3 id="a-pending">0</h3></div>
-                <div class="stat-card"><p>Admin Net Profit</p><h3 id="a-net" style="color: var(--gold);">$0.00</h3></div>
+                <div class="stat-card"><p>Admin Net Profit</p><h3 id="a-net" style="color: var(--gold);">৳0</h3></div>
             </div>
 
             <!-- Partner Stats -->
             <div id="partnerStats" class="stat-grid hidden">
                 <div class="stat-card"><p>My Sold Items</p><h3 id="p-qty">0</h3></div>
-                <div class="stat-card"><p>My Commission</p><h3 id="p-profit" style="color: var(--green);">$0.00</h3></div>
-                <div class="stat-card"><p>Total Receivable</p><h3 id="p-total" style="color: var(--gold);">$0.00</h3></div>
+                <div class="stat-card"><p>My Commission</p><h3 id="p-profit" style="color: var(--green);">৳0</h3></div>
+                <div class="stat-card"><p>Total Receivable</p><h3 id="p-total" style="color: var(--gold);">৳0</h3></div>
             </div>
 
             <div class="card" style="padding: 0; border: none; background: transparent;">
@@ -157,7 +165,7 @@
             <div class="card">
                 <p style="font-size: 14px; font-weight: 600; margin-bottom: 15px;">Recent Orders</p>
                 <table>
-                    <thead><tr><th>Order ID</th><th>Customer</th><th>Product / Amount</th><th>Status</th><th>Action</th></tr></thead>
+                    <thead><tr><th>Order ID</th><th>Customer</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead>
                     <tbody id="dashboardOrders"></tbody>
                 </table>
             </div>
@@ -168,7 +176,7 @@
             <div class="card">
                 <p style="font-size: 16px; font-weight: 600; margin-bottom: 20px;">Order Management</p>
                 <table>
-                    <thead><tr><th>ID</th><th>Customer</th><th>Phone</th><th>Total Cost</th><th>Commission</th><th>Total</th><th>Status</th><th>Action</th></tr></thead>
+                    <thead><tr><th>ID</th><th>Customer</th><th>Phone</th><th class="admin-only">Total Cost</th><th class="admin-only">Commission</th><th>Total</th><th>Status</th><th>Action</th></tr></thead>
                     <tbody id="ordersTable"></tbody>
                 </table>
             </div>
@@ -182,7 +190,7 @@
                     <button class="btn" style="background: var(--sidebar-bg); color: var(--gold);" onclick="openProductModal()">+ Add Product</button>
                 </div>
                 <table>
-                    <thead><tr><th>SKU</th><th>Name</th><th>Cost Price</th><th>Sell Price</th><th>Partner Comm.</th><th>Stock</th><th>Action</th></tr></thead>
+                    <thead><tr><th>SKU</th><th>Name</th><th>Cost Price</th><th>Sell Price</th><th>Partner Comm.</th><th>Action</th></tr></thead>
                     <tbody id="productsTable"></tbody>
                 </table>
             </div>
@@ -196,11 +204,8 @@
         <h3 style="margin-bottom: 20px;" id="pm-title">Add New Product</h3>
         <input type="hidden" id="p-isEdit" value="0">
         
-        <div class="flex-row">
-            <div class="form-group"><label>Product SKU</label><input type="text" id="p-sku"></div>
-            <div class="form-group"><label>Stock Qty</label><input type="number" id="p-stock"></div>
-        </div>
-        <div class="form-group"><label>Product Name</label><input type="text" id="p-name"></div>
+        <div class="form-group"><label>Product SKU</label><input type="text" id="p-sku" placeholder="e.g. UP-GUCCI-30"></div>
+        <div class="form-group"><label>Product Name</label><input type="text" id="p-name" placeholder="Full Product Name"></div>
         
         <div class="flex-row">
             <div class="form-group"><label>Cost Price (৳)</label><input type="number" id="p-cost"></div>
@@ -208,13 +213,8 @@
         </div>
         
         <div class="form-group"><label>Partner Commission per unit (৳)</label><input type="number" id="p-comm" placeholder="e.g. 50"></div>
-        
-        <div class="form-group">
-            <label>Status</label>
-            <select id="p-status"><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
-        </div>
 
-        <button class="btn" style="background: var(--sidebar-bg); color: var(--gold); width: 100%; padding: 12px; margin-top: 10px;" onclick="saveProduct()">Save Product</button>
+        <button id="btnSaveProduct" class="btn" style="background: var(--sidebar-bg); color: var(--gold); width: 100%; padding: 12px; margin-top: 10px;" onclick="saveProduct()">Save Product</button>
         <button class="btn btn-outline" style="width: 100%; padding: 12px; margin-top: 10px;" onclick="closeModal('productModal')">Cancel</button>
     </div>
 </div>
@@ -229,6 +229,8 @@
             <label>Status</label>
             <select id="editStatus">
                 <option value="Pending">Pending</option>
+                <option value="Confirmed">Confirmed</option>
+                <option value="Shipped">Shipped</option>
                 <option value="Delivered">Delivered</option>
                 <option value="Cancelled">Cancelled</option>
             </select>
@@ -250,13 +252,12 @@
             <div class="form-group"><label>Supplier (Admin/Partner)</label><input type="text" id="editSupplier"></div>
         </div>
 
-        <button class="btn" style="background: var(--sidebar-bg); color: var(--gold); width: 100%; padding: 12px; margin-top: 10px;" onclick="saveOrder()">Save Order</button>
+        <button id="btnSaveOrder" class="btn" style="background: var(--sidebar-bg); color: var(--gold); width: 100%; padding: 12px; margin-top: 10px;" onclick="saveOrder()">Save Order</button>
         <button class="btn btn-outline" style="width: 100%; padding: 12px; margin-top: 10px;" onclick="closeModal('orderModal')">Close</button>
     </div>
 </div>
 
 <script>
-// ⚠️ আপনার নতুন Web App URL বসান
 const API_URL = "https://script.google.com/macros/s/AKfycbw4beX3AcNWV0RzHO2rDeN_RiiWBJGdpSMFP9E0oEg5RsVndo9j1L5Eznc7QS49--s2/exec"; 
 let token = sessionStorage.getItem("crm_token") || "";
 let userRole = ""; 
@@ -272,7 +273,11 @@ async function login(auto = false) {
     if(!auto) token = document.getElementById("authToken").value.trim();
     if(!token) return;
     
-    document.getElementById("loginError").textContent = "Loading CRM...";
+    const btn = document.getElementById("loginBtn");
+    btn.textContent = "Loading CRM...";
+    btn.disabled = true;
+    document.getElementById("loginError").textContent = "";
+
     try {
         const res = await fetch(`${API_URL}?action=dashboard_data&token=${token}`);
         const data = await res.json();
@@ -285,7 +290,6 @@ async function login(auto = false) {
             document.getElementById("appSidebar").style.display = "flex";
             document.getElementById("appMain").style.display = "flex";
             document.getElementById("roleText").textContent = userRole === 'admin' ? 'Admin' : 'Partner';
-            document.getElementById("profileName").textContent = userRole === 'admin' ? 'Razin (RZN Tech)' : 'Partner';
             
             if(userRole === "admin") {
                 document.getElementById("adminStats").classList.remove("hidden");
@@ -298,7 +302,10 @@ async function login(auto = false) {
             document.getElementById("loginError").textContent = data.error;
             sessionStorage.removeItem("crm_token");
         }
-    } catch (e) { document.getElementById("loginError").textContent = "Network Error."; }
+    } catch (e) { document.getElementById("loginError").textContent = "Network Error. Please try again."; }
+    
+    btn.textContent = "Sign In";
+    btn.disabled = false;
 }
 
 function logout() { sessionStorage.removeItem("crm_token"); location.reload(); }
@@ -311,9 +318,11 @@ function switchTab(tabId) {
 }
 
 async function fetchData() {
-    const res = await fetch(`${API_URL}?action=dashboard_data&token=${token}`);
-    const data = await res.json();
-    if(data.ok) populateData(data);
+    try {
+        const res = await fetch(`${API_URL}?action=dashboard_data&token=${token}`);
+        const data = await res.json();
+        if(data.ok) populateData(data);
+    } catch(e) { console.error("Data refresh failed."); }
 }
 
 function getBadge(status) {
@@ -339,56 +348,59 @@ function populateData(data) {
         document.getElementById("p-total").textContent = `৳${s.partnerPayable.toLocaleString()}`;
     }
     
-    const rowHTML = o => `
-        <tr>
-            <td style="font-weight:600;">${o.Order_ID}</td>
-            <td>${o.Customer_Name}</td>
-            <td class="admin-only">${o.Phone}</td>
-            <td class="admin-only">৳${o.Total_Cost}</td>
-            <td class="admin-only" style="color:var(--gold);">৳${o.Partner_Commission}</td>
-            <td style="font-weight:600;">৳${o.Grand_Total}</td>
-            <td>${getBadge(o.Order_Status)}</td>
-            <td><button class="btn btn-outline" onclick="openOrderModal('${o.Order_ID}')">View</button></td>
-        </tr>`;
-        
-    document.getElementById("ordersTable").innerHTML = globalOrders.map(rowHTML).join("");
-    document.getElementById("dashboardOrders").innerHTML = globalOrders.slice(0,4).map(o => `
+    renderOrdersTable(globalOrders);
+    
+    document.getElementById("dashboardOrders").innerHTML = globalOrders.slice(0,5).map(o => `
         <tr><td style="font-weight:600;">${o.Order_ID}</td><td>${o.Customer_Name}</td><td style="font-weight:600;">৳${o.Grand_Total}</td><td>${getBadge(o.Order_Status)}</td><td><button class="btn btn-outline" onclick="openOrderModal('${o.Order_ID}')">View</button></td></tr>
     `).join("");
 
     if(userRole === "admin") {
         document.getElementById("productsTable").innerHTML = globalProducts.map(p => `
-            <tr><td style="font-weight:600;">${p.Product_SKU}</td><td>${p.Product_Name}</td><td>৳${p.Cost_Price}</td><td>৳${p.Selling_Price}</td><td style="color:var(--gold);">৳${p.Partner_Commission}</td><td>${p.Stock}</td><td><button class="btn btn-outline" onclick="openProductModal('${p.Product_SKU}')">Edit</button></td></tr>
+            <tr><td style="font-weight:600;">${p.Product_SKU}</td><td>${p.Product_Name}</td><td>৳${p.Cost_Price}</td><td>৳${p.Selling_Price}</td><td style="color:var(--gold);">৳${p.Partner_Commission}</td>
+            <td><button class="btn btn-outline" onclick="openProductModal('${p.Product_SKU}')">Edit</button></td></tr>
         `).join("");
     }
 
-    // চার্ট ডায়নামিক করার জন্য কল
     processChartData(globalOrders);
 }
 
-// ----------------------------------------------------
-// চার্ট ডায়নামিক করার নতুন ফাংশন
-// ----------------------------------------------------
+function renderOrdersTable(orders) {
+    const rowHTML = o => `
+        <tr>
+            <td style="font-weight:600;">${o.Order_ID}</td>
+            <td>${o.Customer_Name}</td>
+            <td>${o.Phone}</td>
+            <td class="admin-only">৳${o.Total_Cost}</td>
+            <td class="admin-only" style="color:var(--gold);">৳${o.Partner_Commission}</td>
+            <td style="font-weight:600;">৳${o.Grand_Total}</td>
+            <td>${getBadge(o.Order_Status)}</td>
+            <td style="display:flex; gap:8px;">
+                <button class="btn btn-outline" onclick="openOrderModal('${o.Order_ID}')">View</button>
+                ${userRole === 'admin' ? `<button class="btn btn-danger" onclick="deleteOrder('${o.Order_ID}')"><i class="fas fa-trash"></i></button>` : ''}
+            </td>
+        </tr>`;
+        
+    document.getElementById("ordersTable").innerHTML = orders.map(rowHTML).join("");
+    if(userRole !== 'admin') document.querySelectorAll(".admin-only").forEach(el => el.style.display = "none");
+}
+
+function searchOrders() {
+    const q = document.getElementById("searchInput").value.toLowerCase();
+    const filtered = globalOrders.filter(o => String(o.Order_ID).toLowerCase().includes(q) || String(o.Customer_Name).toLowerCase().includes(q) || String(o.Phone).includes(q));
+    renderOrdersTable(filtered);
+}
+
 function processChartData(orders) {
     const monthlyRevenue = {};
-
-    // তারিখ অনুযায়ী পুরানো থেকে নতুন সাজানো (যাতে গ্রাফ বাম থেকে ডানে যায়)
     const sortedOrders = [...orders].sort((a, b) => new Date(a.Order_Date) - new Date(b.Order_Date));
 
     sortedOrders.forEach(o => {
-        // শুধু ডেলিভারি হওয়া অর্ডারের সেলস কাউন্ট করবে, আপনি চাইলে সব অর্ডারও রাখতে পারেন
         if (o.Order_Status === 'Delivered') { 
             const dateObj = new Date(o.Order_Date);
             if (!isNaN(dateObj)) {
-                // তারিখ থেকে "Jan 2026", "Feb 2026" বের করা
                 const monthYear = dateObj.toLocaleString('en-US', { month: 'short' }); 
                 const amount = Number(o.Grand_Total) || 0;
-                
-                if (monthlyRevenue[monthYear]) {
-                    monthlyRevenue[monthYear] += amount;
-                } else {
-                    monthlyRevenue[monthYear] = amount;
-                }
+                monthlyRevenue[monthYear] = (monthlyRevenue[monthYear] || 0) + amount;
             }
         }
     });
@@ -396,17 +408,11 @@ function processChartData(orders) {
     const labels = Object.keys(monthlyRevenue);
     const chartData = Object.values(monthlyRevenue);
 
-    // যদি শিটে কোনো ডেলিভারড অর্ডার না থাকে, তবে একটি ডামি 0 ভ্যালু দেখাবে
     if (labels.length === 0) {
         labels.push(new Date().toLocaleString('en-US', { month: 'short' }));
         chartData.push(0);
     }
 
-    initChart(labels, chartData);
-}
-
-// চার্ট ইনিশিয়ালাইজ ফাংশনে ডায়নামিক লেবেল এবং ডেটা পাস করা হলো
-function initChart(dynamicLabels, dynamicData) {
     const ctx = document.getElementById('salesChart').getContext('2d');
     if(chartInstance) chartInstance.destroy();
     
@@ -417,33 +423,24 @@ function initChart(dynamicLabels, dynamicData) {
     chartInstance = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: dynamicLabels, // রিয়েল মান্থ লেবেল
+            labels: labels,
             datasets: [{
                 label: 'Revenue (৳)',
-                data: dynamicData, // রিয়েল সেলস ডেটা
+                data: chartData,
                 borderColor: '#dfaa5b',
                 backgroundColor: gradient,
                 borderWidth: 3,
                 fill: true,
                 tension: 0.4,
-                pointRadius: 0, // ছবির মতো পয়েন্ট হাইড করে স্মুথ রাখা হলো
-                pointHoverRadius: 6 // হোভার করলে পয়েন্ট শো করবে
+                pointRadius: 0,
+                pointHoverRadius: 6
             }]
         },
-        options: { 
-            responsive: true, 
-            maintainAspectRatio: false, 
-            plugins: { legend: { display: false } }, 
-            scales: { 
-                x: { grid: { display: false } }, 
-                y: { grid: { color: 'rgba(255, 255, 255, 0.05)', borderDash: [5, 5] } } 
-            } 
-        }
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { grid: { color: 'rgba(255, 255, 255, 0.05)', borderDash: [5, 5] } } } }
     });
 }
-// ----------------------------------------------------
 
-// --- Order Modal Logic ---
+// --- Modals & APIs ---
 function openOrderModal(id) {
     const order = globalOrders.find(o => o.Order_ID === id);
     document.getElementById("editOrderId").value = id;
@@ -462,6 +459,10 @@ function openOrderModal(id) {
 }
 
 async function saveOrder() {
+    const btn = document.getElementById("btnSaveOrder");
+    btn.innerHTML = "Saving...";
+    btn.disabled = true;
+
     let payload = { token: token, orderId: document.getElementById("editOrderId").value, status: document.getElementById("editStatus").value };
     if(userRole === 'admin') {
         payload.action = "updateOrderFull";
@@ -475,12 +476,30 @@ async function saveOrder() {
         payload.Order_Status = payload.status;
     } else payload.action = "updateStatus";
     
-    const res = await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
-    const data = await res.json();
-    if(data.ok) { closeModal("orderModal"); fetchData(); } else alert("Error: " + data.error);
+    try {
+        const res = await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
+        const data = await res.json();
+        if(data.ok) { closeModal("orderModal"); fetchData(); } 
+        else alert("Error: " + data.error);
+    } catch(e) { alert("Network Error"); }
+    
+    btn.innerHTML = "Save Order";
+    btn.disabled = false;
 }
 
-// --- Product Modal Logic ---
+// নতুন ডিলিট অর্ডার ফাংশন
+async function deleteOrder(id) {
+    if(!confirm(`Are you sure you want to delete order ${id}? This cannot be undone.`)) return;
+    
+    const payload = { action: "deleteOrder", token: token, orderId: id };
+    try {
+        const res = await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
+        const data = await res.json();
+        if(data.ok) fetchData();
+        else alert("Error: " + data.error);
+    } catch(e) { alert("Network Error"); }
+}
+
 function openProductModal(sku = null) {
     document.getElementById("productModal").style.display = "flex";
     if(sku) {
@@ -493,32 +512,50 @@ function openProductModal(sku = null) {
         document.getElementById("p-cost").value = p.Cost_Price;
         document.getElementById("p-sell").value = p.Selling_Price;
         document.getElementById("p-comm").value = p.Partner_Commission;
-        document.getElementById("p-stock").value = p.Stock;
-        document.getElementById("p-status").value = p.Status;
     } else {
         document.getElementById("pm-title").textContent = "Add New Product";
         document.getElementById("p-isEdit").value = "0";
         document.getElementById("p-sku").disabled = false;
         document.querySelectorAll("#productModal input").forEach(i => i.value = "");
+        document.getElementById("p-isEdit").value = "0"; // reset hidden
     }
 }
 
 async function saveProduct() {
+    const btn = document.getElementById("btnSaveProduct");
+    btn.innerHTML = "Saving...";
+    btn.disabled = true;
+
     const isEdit = document.getElementById("p-isEdit").value === "1";
+    const skuVal = document.getElementById("p-sku").value.trim();
+    const nameVal = document.getElementById("p-name").value.trim();
+
+    if(!skuVal || !nameVal) {
+        alert("SKU and Name are required.");
+        btn.innerHTML = "Save Product";
+        btn.disabled = false;
+        return;
+    }
+
     let payload = {
         token: token,
         action: isEdit ? "updateProduct" : "addProduct",
-        sku: document.getElementById("p-sku").value,
-        name: document.getElementById("p-name").value,
+        sku: skuVal,
+        name: nameVal,
         cost_price: document.getElementById("p-cost").value,
         sell_price: document.getElementById("p-sell").value,
-        partner_commission: document.getElementById("p-comm").value,
-        stock: document.getElementById("p-stock").value,
-        status: document.getElementById("p-status").value
+        partner_commission: document.getElementById("p-comm").value
     };
-    const res = await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
-    const data = await res.json();
-    if(data.ok) { closeModal("productModal"); fetchData(); } else alert("Error: " + data.error);
+    
+    try {
+        const res = await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
+        const data = await res.json();
+        if(data.ok) { closeModal("productModal"); fetchData(); } 
+        else alert("Error: " + data.error);
+    } catch(e) { alert("Network Error"); }
+    
+    btn.innerHTML = "Save Product";
+    btn.disabled = false;
 }
 
 function closeModal(id) { document.getElementById(id).style.display = "none"; }
