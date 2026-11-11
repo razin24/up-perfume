@@ -258,7 +258,7 @@
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbxSg3Kj_AQTx8bLXR9K81CqtnMqiNxzIZIhRRqpBari0EN9oomq0PqcXgyQsOTLQUBb/exec"; 
+const API_URL = "https://script.google.com/macros/s/AKfycbxKp9I7YSVG7vRewl8UTAWbpr1JqgFh5W_d2hnGMshURvVCUj_SjCySe8Cf48U-myJX/exec"; 
 let token = sessionStorage.getItem("crm_token") || "";
 let userRole = ""; 
 let globalOrders = [];
@@ -332,7 +332,6 @@ function getBadge(status) {
     return `<span class="badge" style="background:#e2e8f0; color:#475569;">${status}</span>`;
 }
 
-// এই ফাংশনটি দিয়ে আগের populateData রিপ্লেস করুন
 function populateData(data) {
     globalOrders = data.orders;
     globalProducts = data.products || [];
@@ -356,7 +355,6 @@ function populateData(data) {
     `).join("");
 
     if(userRole === "admin") {
-        // এখানে p.Selling_Price এর বদলে p.Unit_Price দেওয়া হয়েছে এবং ডিলিট বাটন যুক্ত করা হয়েছে
         document.getElementById("productsTable").innerHTML = globalProducts.map(p => `
             <tr>
                 <td style="font-weight:600;">${p.Product_SKU}</td>
@@ -377,23 +375,6 @@ function populateData(data) {
     processChartData(globalOrders);
 }
 
-// প্রোডাক্ট ডিলিট করার জন্য এই নতুন ফাংশনটি স্ক্রিপ্টের একদম নিচে যুক্ত করে দিন
-async function deleteProduct(sku) {
-    if(!confirm(`Are you sure you want to delete product ${sku}? This cannot be undone.`)) return;
-    
-    const payload = { action: "deleteProduct", token: token, sku: sku };
-    try {
-        const res = await fetch(API_URL, { 
-            method: "POST", 
-            headers: {
-                "Content-Type": "text/plain;charset=utf-8",
-            },
-            body: JSON.stringify(payload) 
-        });
-        const data = await res.json();
-        if(data.ok) fetchData();
-        else alert("Error: " + data.error);
-    } catch(e) { alert("Network Error"); }
 function renderOrdersTable(orders) {
     const rowHTML = o => `
         <tr>
@@ -470,7 +451,6 @@ function processChartData(orders) {
     });
 }
 
-// --- Modals & APIs ---
 function openOrderModal(id) {
     const order = globalOrders.find(o => o.Order_ID === id);
     document.getElementById("editOrderId").value = id;
@@ -507,7 +487,11 @@ async function saveOrder() {
     } else payload.action = "updateStatus";
     
     try {
-        const res = await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
+        const res = await fetch(API_URL, { 
+            method: "POST", 
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify(payload) 
+        });
         const data = await res.json();
         if(data.ok) { closeModal("orderModal"); fetchData(); } 
         else alert("Error: " + data.error);
@@ -517,13 +501,16 @@ async function saveOrder() {
     btn.disabled = false;
 }
 
-// নতুন ডিলিট অর্ডার ফাংশন
 async function deleteOrder(id) {
     if(!confirm(`Are you sure you want to delete order ${id}? This cannot be undone.`)) return;
     
     const payload = { action: "deleteOrder", token: token, orderId: id };
     try {
-        const res = await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
+        const res = await fetch(API_URL, { 
+            method: "POST", 
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify(payload) 
+        });
         const data = await res.json();
         if(data.ok) fetchData();
         else alert("Error: " + data.error);
@@ -540,7 +527,7 @@ function openProductModal(sku = null) {
         document.getElementById("p-sku").disabled = true;
         document.getElementById("p-name").value = p.Product_Name;
         document.getElementById("p-cost").value = p.Cost_Price;
-        document.getElementById("p-sell").value = p.Selling_Price;
+        document.getElementById("p-sell").value = p.Unit_Price;
         document.getElementById("p-comm").value = p.Partner_Commission;
     } else {
         document.getElementById("pm-title").textContent = "Add New Product";
@@ -573,11 +560,11 @@ async function saveProduct() {
         sku: skuVal,
         name: nameVal,
         cost_price: document.getElementById("p-cost").value,
-        sell_price: document.getElementById("p-sell").value,
+        unit_price: document.getElementById("p-sell").value,
         partner_commission: document.getElementById("p-comm").value
     };
     
-   try {
+    try {
         const res = await fetch(API_URL, { 
             method: "POST", 
             headers: {
@@ -589,6 +576,30 @@ async function saveProduct() {
         if(data.ok) { closeModal("productModal"); fetchData(); } 
         else alert("Error: " + data.error);
     } catch(e) { alert("Network Error"); }
+    
+    btn.innerHTML = "Save Product";
+    btn.disabled = false;
+}
+
+async function deleteProduct(sku) {
+    if(!confirm(`Are you sure you want to delete product ${sku}? This cannot be undone.`)) return;
+    
+    const payload = { action: "deleteProduct", token: token, sku: sku };
+    try {
+        const res = await fetch(API_URL, { 
+            method: "POST", 
+            headers: {
+                "Content-Type": "text/plain;charset=utf-8",
+            },
+            body: JSON.stringify(payload) 
+        });
+        const data = await res.json();
+        if(data.ok) fetchData();
+        else alert("Error: " + data.error);
+    } catch(e) { alert("Network Error"); }
+}
+
+function closeModal(id) { document.getElementById(id).style.display = "none"; }
 </script>
 </body>
 </html>
