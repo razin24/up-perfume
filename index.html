@@ -383,12 +383,17 @@ async function deleteProduct(sku) {
     
     const payload = { action: "deleteProduct", token: token, sku: sku };
     try {
-        const res = await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
+        const res = await fetch(API_URL, { 
+            method: "POST", 
+            headers: {
+                "Content-Type": "text/plain;charset=utf-8",
+            },
+            body: JSON.stringify(payload) 
+        });
         const data = await res.json();
         if(data.ok) fetchData();
         else alert("Error: " + data.error);
     } catch(e) { alert("Network Error"); }
-}
 function renderOrdersTable(orders) {
     const rowHTML = o => `
         <tr>
@@ -572,18 +577,18 @@ async function saveProduct() {
         partner_commission: document.getElementById("p-comm").value
     };
     
-    try {
-        const res = await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
+   try {
+        const res = await fetch(API_URL, { 
+            method: "POST", 
+            headers: {
+                "Content-Type": "text/plain;charset=utf-8",
+            },
+            body: JSON.stringify(payload) 
+        });
         const data = await res.json();
         if(data.ok) { closeModal("productModal"); fetchData(); } 
         else alert("Error: " + data.error);
     } catch(e) { alert("Network Error"); }
-    
-    btn.innerHTML = "Save Product";
-    btn.disabled = false;
-}
-
-function closeModal(id) { document.getElementById(id).style.display = "none"; }
 </script>
 </body>
 </html>
