@@ -164,7 +164,19 @@
             <div class="card">
                 <p style="font-size: 16px; font-weight: 600; margin-bottom: 20px;">Order Management</p>
                 <table>
-                    <thead><tr><th>ID</th><th>Customer</th><th>Phone</th><th class="admin-only">Total Cost</th><th class="admin-only">Commission</th><th>Total</th><th>Status</th><th>Action</th></tr></thead>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Customer</th>
+                            <th>Phone</th>
+                            <th>Items (Products)</th> <!-- New Items Column -->
+                            <th class="admin-only">Total Cost</th>
+                            <th class="admin-only">Commission</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
                     <tbody id="ordersTable"></tbody>
                 </table>
             </div>
@@ -268,7 +280,7 @@
 
 <script>
 // --- YOUR APPS SCRIPT URL HERE ---
-const API_URL = "https://script.google.com/macros/s/AKfycbxlwIYAVdobapy4y-YouQU3iyowMycKc1JEdd3C_HNEkG8LMgRsTwaXEPRzAznb_YG9/exec"; 
+const API_URL = "https://script.google.com/macros/s/AKfycbyXSDYFz-_lXBK2YK-MQfyFEt44z4KE3XklR71nN25K0xh6Cuj_W2rv2kABYs5yvpFZ/exec"; 
 
 let token = sessionStorage.getItem("crm_token") || "";
 let userRole = ""; 
@@ -283,13 +295,41 @@ document.getElementById('currentDate').textContent = new Date().toLocaleDateStri
 
 if(token) login(true);
 
+function showDashboardUI() {
+    document.getElementById("loginScreen").classList.add("hidden");
+    document.getElementById("appSidebar").style.display = "flex";
+    document.getElementById("appMain").style.display = "flex";
+    document.getElementById("roleText").textContent = userRole === 'admin' ? 'Admin' : 'Partner';
+    
+    if(userRole === "admin") {
+        document.getElementById("adminStats").classList.remove("hidden");
+        document.querySelectorAll(".admin-only").forEach(el => el.style.display = "block");
+    } else {
+        document.getElementById("partnerStats").classList.remove("hidden");
+        document.querySelectorAll(".admin-only").forEach(el => el.style.display = "none");
+    }
+}
+
 async function login(auto = false) {
     if(!auto) token = document.getElementById("authToken").value.trim();
     if(!token) return;
     
     const btn = document.getElementById("loginBtn");
     btn.textContent = "Loading CRM...";
-    btn.disabled = true;
+    if(!auto) btn.disabled = true;
+
+    // Fast Load with Cache (No Lag Vibe)
+    const cachedData = localStorage.getItem("crm_offline_data");
+    let cacheLoaded = false;
+    if(auto && cachedData) {
+        try {
+            const data = JSON.parse(cachedData);
+            userRole = data.role;
+            showDashboardUI();
+            populateData(data);
+            cacheLoaded = true;
+        } catch(e) {}
+    }
 
     try {
         const res = await fetch(`${API_URL}?action=dashboard_data&token=${token}`);
@@ -297,32 +337,30 @@ async function login(auto = false) {
         
         if(data.ok) {
             sessionStorage.setItem("crm_token", token);
+            localStorage.setItem("crm_offline_data", JSON.stringify(data)); // Cache data
             userRole = data.role;
             
-            document.getElementById("loginScreen").classList.add("hidden");
-            document.getElementById("appSidebar").style.display = "flex";
-            document.getElementById("appMain").style.display = "flex";
-            document.getElementById("roleText").textContent = userRole === 'admin' ? 'Admin' : 'Partner';
-            
-            if(userRole === "admin") {
-                document.getElementById("adminStats").classList.remove("hidden");
-                document.querySelectorAll(".admin-only").forEach(el => el.style.display = "block");
-            } else {
-                document.getElementById("partnerStats").classList.remove("hidden");
-                document.querySelectorAll(".admin-only").forEach(el => el.style.display = "none");
-            }
-            populateData(data);
+            if(!cacheLoaded) showDashboardUI();
+            populateData(data); // Refresh silently
         } else {
-            document.getElementById("loginError").textContent = data.error;
-            sessionStorage.removeItem("crm_token");
+            if(!cacheLoaded) {
+                document.getElementById("loginError").textContent = data.error;
+                sessionStorage.removeItem("crm_token");
+            }
         }
-    } catch (e) { document.getElementById("loginError").textContent = "Network Error."; }
+    } catch (e) { 
+        if(!cacheLoaded) document.getElementById("loginError").textContent = "Network Error."; 
+    }
     
     btn.textContent = "Sign In";
     btn.disabled = false;
 }
 
-function logout() { sessionStorage.removeItem("crm_token"); location.reload(); }
+function logout() { 
+    sessionStorage.removeItem("crm_token"); 
+    localStorage.removeItem("crm_offline_data");
+    location.reload(); 
+}
 
 function switchTab(tabId) {
     currentTab = tabId;
@@ -342,7 +380,10 @@ async function fetchData() {
     try {
         const res = await fetch(`${API_URL}?action=dashboard_data&token=${token}`);
         const data = await res.json();
-        if(data.ok) populateData(data);
+        if(data.ok) {
+            localStorage.setItem("crm_offline_data", JSON.stringify(data));
+            populateData(data);
+        }
     } catch(e) { console.error("Data refresh failed."); }
 }
 
@@ -371,16 +412,16 @@ function populateData(data) {
         document.getElementById("p-total").textContent = `৳${s.partnerPayable.toLocaleString()}`;
     }
     
-    renderOrdersTable(globalOrders);
+    if(currentTab === "orders") renderOrdersTable(globalOrders);
     
     document.getElementById("dashboardOrders").innerHTML = globalOrders.slice(0,5).map(o => `
         <tr><td style="font-weight:600;">${o.Order_ID}</td><td>${o.Customer_Name}</td><td style="font-weight:600;">৳${o.Grand_Total}</td><td>${getBadge(o.Order_Status)}</td><td><button class="btn btn-outline" onclick="openOrderModal('${o.Order_ID}')">View</button></td></tr>
     `).join("");
 
     if(userRole === "admin") {
-        renderProductsTable(globalProducts);
-        renderCustomersTable(globalCustomers);
-        renderActivityTable(globalActivity);
+        if(currentTab === "products") renderProductsTable(globalProducts);
+        if(currentTab === "customers") renderCustomersTable(globalCustomers);
+        if(currentTab === "activity") renderActivityTable(globalActivity);
     }
 
     processChartData(globalOrders);
@@ -392,6 +433,7 @@ function renderOrdersTable(orders) {
             <td style="font-weight:600;">${o.Order_ID}</td>
             <td>${o.Customer_Name}</td>
             <td>${o.Phone}</td>
+            <td><span style="background: rgba(223, 170, 91, 0.1); border: 1px solid var(--gold); padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight:600;">${o.Product_Summary || 'N/A'}</span></td>
             <td class="admin-only">৳${Number(o.Total_Cost) > 0 ? o.Total_Cost : (o.Calculated_Total_Cost || 0)}</td>
             <td class="admin-only" style="color:var(--gold);">৳${Number(o.Partner_Commission) > 0 ? o.Partner_Commission : (o.Calculated_Partner_Commission || 0)}</td>
             <td style="font-weight:600;">৳${o.Grand_Total}</td>
@@ -452,7 +494,7 @@ function searchGlobal() {
     const q = document.getElementById("searchInput").value.toLowerCase();
     
     if (currentTab === "orders" || currentTab === "dashboard") {
-        const filtered = globalOrders.filter(o => String(o.Order_ID).toLowerCase().includes(q) || String(o.Customer_Name).toLowerCase().includes(q) || String(o.Phone).includes(q));
+        const filtered = globalOrders.filter(o => String(o.Order_ID).toLowerCase().includes(q) || String(o.Customer_Name).toLowerCase().includes(q) || String(o.Phone).includes(q) || String(o.Product_Summary).toLowerCase().includes(q));
         if(currentTab === "orders") renderOrdersTable(filtered);
     } 
     else if (currentTab === "products" && userRole === "admin") {
@@ -513,7 +555,6 @@ function openOrderModal(id) {
         document.getElementById("editSub").value = order.Subtotal || 0;
         document.getElementById("editDel").value = order.Delivery_Charge || 0;
         
-        // Smart Data Population
         let supplierName = (order.Supplier || "partner").toLowerCase();
         let finalCost = Number(order.Total_Cost) > 0 ? order.Total_Cost : (order.Calculated_Total_Cost || 0);
         let finalComm = 0;
@@ -524,29 +565,45 @@ function openOrderModal(id) {
 
         document.getElementById("editCost").value = finalCost;
         document.getElementById("editComm").value = finalComm;
-        document.getElementById("editSupplier").value = order.Supplier || "partner"; // Default is partner
+        document.getElementById("editSupplier").value = order.Supplier || "partner"; 
     }
     document.getElementById("orderModal").style.display = "flex";
 }
 
 async function saveOrder() {
-    const btn = document.getElementById("btnSaveOrder");
-    btn.innerHTML = "Saving...";
-    btn.disabled = true;
-
-    let payload = { token: token, orderId: document.getElementById("editOrderId").value, status: document.getElementById("editStatus").value };
-    if(userRole === 'admin') {
-        payload.action = "updateOrderFull";
-        payload.Customer_Name = document.getElementById("editCName").value;
-        payload.Phone = document.getElementById("editPhone").value;
-        payload.Subtotal = document.getElementById("editSub").value;
-        payload.Delivery_Charge = document.getElementById("editDel").value;
-        payload.Total_Cost = document.getElementById("editCost").value;
-        payload.Partner_Commission = document.getElementById("editComm").value;
-        payload.Supplier = document.getElementById("editSupplier").value;
-        payload.Order_Status = payload.status;
-    } else payload.action = "updateStatus";
+    const orderId = document.getElementById("editOrderId").value;
+    const status = document.getElementById("editStatus").value;
     
+    // Optimistic UI Update: Local update and re-render instantly without waiting for fetch
+    const targetOrder = globalOrders.find(o => o.Order_ID === orderId);
+    let payload = { token: token, orderId: orderId, status: status };
+
+    if(targetOrder) {
+        targetOrder.Order_Status = status;
+        if(userRole === 'admin') {
+            payload.action = "updateOrderFull";
+            payload.Customer_Name = targetOrder.Customer_Name = document.getElementById("editCName").value;
+            payload.Phone = targetOrder.Phone = document.getElementById("editPhone").value;
+            payload.Subtotal = targetOrder.Subtotal = document.getElementById("editSub").value;
+            payload.Delivery_Charge = targetOrder.Delivery_Charge = document.getElementById("editDel").value;
+            payload.Total_Cost = targetOrder.Total_Cost = document.getElementById("editCost").value;
+            payload.Partner_Commission = targetOrder.Partner_Commission = document.getElementById("editComm").value;
+            payload.Supplier = targetOrder.Supplier = document.getElementById("editSupplier").value;
+            targetOrder.Grand_Total = Number(targetOrder.Subtotal || 0) + Number(targetOrder.Delivery_Charge || 0);
+            payload.Order_Status = status;
+        } else {
+            payload.action = "updateStatus";
+        }
+        
+        if(currentTab === "orders") renderOrdersTable(globalOrders);
+        document.getElementById("dashboardOrders").innerHTML = globalOrders.slice(0,5).map(o => `
+            <tr><td style="font-weight:600;">${o.Order_ID}</td><td>${o.Customer_Name}</td><td style="font-weight:600;">৳${o.Grand_Total}</td><td>${getBadge(o.Order_Status)}</td><td><button class="btn btn-outline" onclick="openOrderModal('${o.Order_ID}')">View</button></td></tr>
+        `).join("");
+    }
+    
+    // Close modal right away for lag-free vibe
+    closeModal("orderModal"); 
+
     try {
         const res = await fetch(API_URL, { 
             method: "POST", 
@@ -554,12 +611,16 @@ async function saveOrder() {
             body: JSON.stringify(payload) 
         });
         const data = await res.json();
-        if(data.ok) { closeModal("orderModal"); fetchData(); } 
-        else alert("Error: " + data.error);
-    } catch(e) { alert("Network Error"); }
-    
-    btn.innerHTML = "Save Order";
-    btn.disabled = false;
+        if(data.ok) { 
+            // Silent refresh cache
+            localStorage.setItem("crm_offline_data", JSON.stringify({ok: true, role: userRole, stats: calculateLocalStats(), orders: globalOrders, products: globalProducts, customers: globalCustomers, activity: globalActivity}));
+        } 
+        else { alert("Error: " + data.error); fetchData(); } // Error recovery
+    } catch(e) { console.error("Background sync failed."); }
+}
+
+function calculateLocalStats() {
+    return { totalSales: 0, totalOrders: globalOrders.length, pending: 0, adminNetProfit: 0 }; 
 }
 
 async function deleteOrder(id) {
