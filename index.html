@@ -332,6 +332,7 @@ function getBadge(status) {
     return `<span class="badge" style="background:#e2e8f0; color:#475569;">${status}</span>`;
 }
 
+// এই ফাংশনটি দিয়ে আগের populateData রিপ্লেস করুন
 function populateData(data) {
     globalOrders = data.orders;
     globalProducts = data.products || [];
@@ -355,15 +356,39 @@ function populateData(data) {
     `).join("");
 
     if(userRole === "admin") {
+        // এখানে p.Selling_Price এর বদলে p.Unit_Price দেওয়া হয়েছে এবং ডিলিট বাটন যুক্ত করা হয়েছে
         document.getElementById("productsTable").innerHTML = globalProducts.map(p => `
-            <tr><td style="font-weight:600;">${p.Product_SKU}</td><td>${p.Product_Name}</td><td>৳${p.Cost_Price}</td><td>৳${p.Selling_Price}</td><td style="color:var(--gold);">৳${p.Partner_Commission}</td>
-            <td><button class="btn btn-outline" onclick="openProductModal('${p.Product_SKU}')">Edit</button></td></tr>
+            <tr>
+                <td style="font-weight:600;">${p.Product_SKU}</td>
+                <td>${p.Product_Name}</td>
+                <td>৳${p.Cost_Price || 0}</td>
+                <td>৳${p.Unit_Price || 0}</td>
+                <td style="color:var(--gold);">৳${p.Partner_Commission || 0}</td>
+                <td>
+                    <div style="display:flex; gap:8px;">
+                        <button class="btn btn-outline" onclick="openProductModal('${p.Product_SKU}')">Edit</button>
+                        <button class="btn btn-danger" onclick="deleteProduct('${p.Product_SKU}')"><i class="fas fa-trash"></i></button>
+                    </div>
+                </td>
+            </tr>
         `).join("");
     }
 
     processChartData(globalOrders);
 }
 
+// প্রোডাক্ট ডিলিট করার জন্য এই নতুন ফাংশনটি স্ক্রিপ্টের একদম নিচে যুক্ত করে দিন
+async function deleteProduct(sku) {
+    if(!confirm(`Are you sure you want to delete product ${sku}? This cannot be undone.`)) return;
+    
+    const payload = { action: "deleteProduct", token: token, sku: sku };
+    try {
+        const res = await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
+        const data = await res.json();
+        if(data.ok) fetchData();
+        else alert("Error: " + data.error);
+    } catch(e) { alert("Network Error"); }
+}
 function renderOrdersTable(orders) {
     const rowHTML = o => `
         <tr>
