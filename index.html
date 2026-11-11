@@ -294,7 +294,6 @@ async function login(auto = false) {
                 document.querySelectorAll(".admin-only").forEach(el => el.style.display = "none");
             }
             populateData(data);
-            initChart();
         } else {
             document.getElementById("loginError").textContent = data.error;
             sessionStorage.removeItem("crm_token");
@@ -362,7 +361,87 @@ function populateData(data) {
             <tr><td style="font-weight:600;">${p.Product_SKU}</td><td>${p.Product_Name}</td><td>৳${p.Cost_Price}</td><td>৳${p.Selling_Price}</td><td style="color:var(--gold);">৳${p.Partner_Commission}</td><td>${p.Stock}</td><td><button class="btn btn-outline" onclick="openProductModal('${p.Product_SKU}')">Edit</button></td></tr>
         `).join("");
     }
+
+    // চার্ট ডায়নামিক করার জন্য কল
+    processChartData(globalOrders);
 }
+
+// ----------------------------------------------------
+// চার্ট ডায়নামিক করার নতুন ফাংশন
+// ----------------------------------------------------
+function processChartData(orders) {
+    const monthlyRevenue = {};
+
+    // তারিখ অনুযায়ী পুরানো থেকে নতুন সাজানো (যাতে গ্রাফ বাম থেকে ডানে যায়)
+    const sortedOrders = [...orders].sort((a, b) => new Date(a.Order_Date) - new Date(b.Order_Date));
+
+    sortedOrders.forEach(o => {
+        // শুধু ডেলিভারি হওয়া অর্ডারের সেলস কাউন্ট করবে, আপনি চাইলে সব অর্ডারও রাখতে পারেন
+        if (o.Order_Status === 'Delivered') { 
+            const dateObj = new Date(o.Order_Date);
+            if (!isNaN(dateObj)) {
+                // তারিখ থেকে "Jan 2026", "Feb 2026" বের করা
+                const monthYear = dateObj.toLocaleString('en-US', { month: 'short' }); 
+                const amount = Number(o.Grand_Total) || 0;
+                
+                if (monthlyRevenue[monthYear]) {
+                    monthlyRevenue[monthYear] += amount;
+                } else {
+                    monthlyRevenue[monthYear] = amount;
+                }
+            }
+        }
+    });
+
+    const labels = Object.keys(monthlyRevenue);
+    const chartData = Object.values(monthlyRevenue);
+
+    // যদি শিটে কোনো ডেলিভারড অর্ডার না থাকে, তবে একটি ডামি 0 ভ্যালু দেখাবে
+    if (labels.length === 0) {
+        labels.push(new Date().toLocaleString('en-US', { month: 'short' }));
+        chartData.push(0);
+    }
+
+    initChart(labels, chartData);
+}
+
+// চার্ট ইনিশিয়ালাইজ ফাংশনে ডায়নামিক লেবেল এবং ডেটা পাস করা হলো
+function initChart(dynamicLabels, dynamicData) {
+    const ctx = document.getElementById('salesChart').getContext('2d');
+    if(chartInstance) chartInstance.destroy();
+    
+    let gradient = ctx.createLinearGradient(0, 0, 0, 250);
+    gradient.addColorStop(0, 'rgba(223, 170, 91, 0.4)'); 
+    gradient.addColorStop(1, 'rgba(11, 21, 40, 0.05)'); 
+
+    chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: dynamicLabels, // রিয়েল মান্থ লেবেল
+            datasets: [{
+                label: 'Revenue (৳)',
+                data: dynamicData, // রিয়েল সেলস ডেটা
+                borderColor: '#dfaa5b',
+                backgroundColor: gradient,
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 0, // ছবির মতো পয়েন্ট হাইড করে স্মুথ রাখা হলো
+                pointHoverRadius: 6 // হোভার করলে পয়েন্ট শো করবে
+            }]
+        },
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            plugins: { legend: { display: false } }, 
+            scales: { 
+                x: { grid: { display: false } }, 
+                y: { grid: { color: 'rgba(255, 255, 255, 0.05)', borderDash: [5, 5] } } 
+            } 
+        }
+    });
+}
+// ----------------------------------------------------
 
 // --- Order Modal Logic ---
 function openOrderModal(id) {
@@ -443,35 +522,6 @@ async function saveProduct() {
 }
 
 function closeModal(id) { document.getElementById(id).style.display = "none"; }
-
-// --- Chart setup ---
-function initChart() {
-    const ctx = document.getElementById('salesChart').getContext('2d');
-    if(chartInstance) chartInstance.destroy();
-    
-    // Gradient fill like the image
-    let gradient = ctx.createLinearGradient(0, 0, 0, 250);
-    gradient.addColorStop(0, 'rgba(223, 170, 91, 0.4)'); // Gold tint
-    gradient.addColorStop(1, 'rgba(11, 21, 40, 0.1)'); // Dark base
-
-    chartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-            datasets: [{
-                label: 'Revenue',
-                data: [300, 600, 400, 800, 500, 900], // Mock visual data matching the curve
-                borderColor: '#dfaa5b',
-                backgroundColor: gradient,
-                borderWidth: 3,
-                fill: true,
-                tension: 0.4,
-                pointRadius: 0
-            }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { grid: { borderDash: [5, 5] } } } }
-    });
-}
 </script>
 </body>
 </html>
