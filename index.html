@@ -288,7 +288,7 @@
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbyzbTnzRzcp4vDvM5qfN1TeguTK69E1QF2K2RHznuwFMd4tOMeiKhvkKDZ7Q1ikH4s/exec"; 
+const API_URL = "https://script.google.com/macros/s/AKfycby4_eMfgrXjBskKaIk20LaBUV6ywXbrboYk11GQGgKZCRvNsiN-pmsiuP5kaJXvTiXE/exec"; 
 let token = sessionStorage.getItem("crm_token") || "";
 let userRole = ""; 
 let globalOrders = [];
@@ -512,7 +512,7 @@ function openOrderModal(id) {
         document.getElementById("editDel").value = order.Delivery_Charge || 0;
         document.getElementById("editCost").value = order.Total_Cost || 0;
         document.getElementById("editComm").value = order.Partner_Commission || 0;
-        document.getElementById("editSupplier").value = order.Supplier || "";
+        document.getElementById("editSupplier").value = order.Supplier || "partner";
     }
     document.getElementById("orderModal").style.display = "flex";
 }
